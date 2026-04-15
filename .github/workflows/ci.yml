@@ -10,8 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install luacheck
-        run: sudo apt-get update && sudo apt-get install -y luacheck
+      - name: Install luacheck via luarocks
+        # Ubuntu 24.04 (noble) dropped the `luacheck` apt package, so we
+        # install it via luarocks instead. The `lua5.3` + `liblua5.3-dev`
+        # pair is what luarocks on noble targets by default.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luarocks lua5.3 liblua5.3-dev
+          sudo luarocks install luacheck
       - name: Lint Lua scripts
         run: |
           luacheck scripts/ \
