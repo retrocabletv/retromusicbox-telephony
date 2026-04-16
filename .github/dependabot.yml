@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # GitHub Actions — keep the CI + release-please workflows on supported
+  # action versions. No Go/npm/etc ecosystems in this repo; the telephony
+  # stack itself is FreeSWITCH from the SignalWire Debian repo, pinned by
+  # the distro release inside the Dockerfile.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "ci"
+      include: scope

@@ -71,7 +71,23 @@ so the IVR plays "try again" immediately. The handler then deletes the failed
 session and creates a new one for the retry — that path is fine because
 `fail` sessions don't count against `MaxConcurrent`.
 
-## Build
+## Run
+
+### From the published image (recommended)
+
+Every release builds a multi-arch (`linux/amd64`, `linux/arm64`) image and
+pushes it to GHCR. On a Linux host (bare-metal, VM, NAS):
+
+```bash
+curl -O https://raw.githubusercontent.com/alexkinch/retromusicbox-telephony/main/docker-compose.yml
+docker compose up -d
+```
+
+The compose file uses `network_mode: host` and pulls
+`ghcr.io/alexkinch/retromusicbox-telephony:latest`. Point `RMBD_URL` at
+wherever rmbd is running (default `http://localhost:8080`, same host).
+
+### Build from source
 
 You need a [SignalWire Personal Access Token](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Installation/HOWTO-Create-a-SignalWire-Personal-Access-Token_67240087/)
 to fetch the FreeSWITCH packages from the SignalWire Debian repo.
@@ -79,12 +95,13 @@ to fetch the FreeSWITCH packages from the SignalWire Debian repo.
 ```bash
 cp .env.example .env
 $EDITOR .env       # set SIGNALWIRE_TOKEN
+# In docker-compose.yml, swap the `image:` line for the `build:` block.
 docker compose build
 docker compose up
 ```
 
-That brings FreeSWITCH up listening on the external SIP profile (UDP/TCP
-**5080**) with a wide RTP port range.
+Either way, FreeSWITCH comes up listening on the external SIP profile
+(UDP/TCP **5080**) with a wide RTP port range.
 
 ## Test it
 

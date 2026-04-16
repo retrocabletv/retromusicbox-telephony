@@ -55,6 +55,14 @@ RUN wget --no-verbose --http-user=signalwire --http-password=${SIGNALWIRE_TOKEN}
 COPY conf/ /etc/freeswitch/
 COPY scripts/ /etc/freeswitch/scripts/
 
+# Bake the bespoke IVR prompts into the image. scripts/config.lua references
+# them as /var/lib/freeswitch/sounds/retromusicbox/en/<name>.wav and expects
+# per-digit clips under a `digits/` subdir — which matches this layout.
+# Shipping them in the image keeps the deployment a single artifact (no
+# runtime volume mount required); for iterating on recordings locally you
+# can still mount over this path in docker-compose.
+COPY sounds/ /var/lib/freeswitch/sounds/retromusicbox/en/
+
 RUN chown -R freeswitch:freeswitch /etc/freeswitch /var/lib/freeswitch /var/log/freeswitch /var/run/freeswitch 2>/dev/null || true
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh

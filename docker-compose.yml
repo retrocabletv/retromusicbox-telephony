@@ -1,29 +1,33 @@
 services:
   freeswitch:
-    build:
-      context: .
-      args:
-        SIGNALWIRE_TOKEN: ${SIGNALWIRE_TOKEN}
-    image: retromusicbox-telephony:latest
+    image: ghcr.io/alexkinch/retromusicbox-telephony:latest
+    # Uncomment and comment out `image:` above to build from source instead of
+    # pulling the released image.
+    # build:
+    #   context: .
+    #   args:
+    #     SIGNALWIRE_TOKEN: ${SIGNALWIRE_TOKEN}
     container_name: rmb-freeswitch
-    # Host networking. On Linux this attaches the container directly to the
-    # host's network namespace; on macOS via OrbStack, the container shares
-    # the OrbStack VM's network namespace and "any servers you run in the
-    # container will be accessible from Mac on localhost" per OrbStack's
-    # docs — provided the listener is reachable on the VM's loopback.
-    # Sofia is therefore configured (via RMB_EXTERNAL_IP=127.0.0.1) to bind
-    # on lo so OrbStack's localhost shim forwards Mac→container traffic.
+    # Host networking. On Linux this attaches the container to the host's
+    # network namespace — sofia binds and advertises real host interfaces,
+    # the wide RTP port range works without per-port mapping, and softphones
+    # on the LAN reach FreeSWITCH at the host's IP. macOS + Docker Desktop /
+    # OrbStack / Colima cannot expose UDP cleanly this way; run on a Linux
+    # host (NAS, VPS, Pi, Linux VM with bridged networking) for real use.
     network_mode: host
     environment:
+      # URL of the retromusicbox REST API. On the same host this is usually
+      # http://localhost:8080; in a paired compose stack use the rmbd service
+      # name.
       RMBD_URL: ${RMBD_URL:-http://localhost:8080}
       RMBD_HTTP_TIMEOUT: "15"
       RMB_MAX_RETRIES: "3"
-      # Address sofia binds and advertises in SDP. 127.0.0.1 makes sofia
-      # bind on the OrbStack VM's loopback interface, which is what
-      # OrbStack's localhost forwarder reaches when a Mac client dials
-      # localhost. For a real Linux deployment, set this to the host's
-      # routable IP (or remove and use sofia's auto detection).
-      RMB_EXTERNAL_IP: ${RMB_EXTERNAL_IP:-127.0.0.1}
-    volumes:
-      - ./sounds:/var/lib/freeswitch/sounds/retromusicbox/en:ro
+      # Optional: override the IP sofia advertises in SDP. Leave unset and
+      # sofia auto-detects the primary interface, which is the right default
+      # with host networking on Linux.
+      # RMB_EXTERNAL_IP: ""
+    # For iterating on prompt recordings without rebuilding the image, mount
+    # a local sounds/ directory over the baked-in path:
+    # volumes:
+    #   - ./sounds:/var/lib/freeswitch/sounds/retromusicbox/en:ro
     restart: unless-stopped
