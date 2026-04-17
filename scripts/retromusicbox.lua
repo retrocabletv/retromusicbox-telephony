@@ -184,10 +184,11 @@ end
 
 -- run_confirm reads the validated selection back to the caller, prompts for
 -- 1 (confirm) / 2 or * (cancel), and returns one of:
---   "success"   -> caller confirmed, request is on the queue
---   "cancelled" -> caller cancelled, session is reusable in dialling state
---   "expired"   -> rmbd reaper dropped the session (404)
---   "error"     -> something else went wrong
+--   "success"       -> caller confirmed, request is on the queue
+--   "cancelled"     -> caller cancelled, session is reusable in dialling state
+--   "expired"       -> rmbd reaper dropped the session (404)
+--   "rate_limited"  -> caller hit max_requests_per_caller_per_hour
+--   "error"         -> something else went wrong
 local function run_confirm(sess, session_id, digits, validated_body)
   local title  = json_string(validated_body, "title")  or ""
   local artist = json_string(validated_body, "artist") or ""
@@ -237,7 +238,15 @@ local function run_confirm(sess, session_id, digits, validated_body)
   elseif result == "dialling" then
     return "cancelled"
   end
-  -- Includes "fail" — e.g. queue rejected the add at confirm time (rare).
+  -- "fail" at confirm time — typically queue.Add rejected it. Branch on
+  -- reason_code so the caller gets a meaningful prompt instead of a generic
+  -- "something went wrong". Unknown codes fall through to "error".
+  local reason_code = json_string(cbody, "reason_code") or ""
+  if reason_code == "rate_limited" then
+    log("WARNING", "confirm rejected: rate_limited")
+    return "rate_limited"
+  end
+  log("WARNING", "confirm rejected: " .. (reason_code ~= "" and reason_code or "unknown"))
   return "error"
 end
 
@@ -306,6 +315,16 @@ local function handle_call(sess)
           if sess:ready() then sess:streamFile(config.prompts.error) end
           session_id = nil  -- already gone on the rmbd side
           break
+
+        elseif outcome == "rate_limited" then
+          -- Caller has hit their per-hour quota. No point looping — the
+          -- limit is time-based, retrying in-call won't help.
+          if sess:ready() then
+            sess:streamFile(config.prompts.limit_reached)
+            sess:streamFile(config.prompts.goodbye)
+          end
+          delete_session(session_id)
+          return
 
         else  -- "error"
           if sess:ready() then sess:streamFile(config.prompts.error) end

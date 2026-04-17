@@ -34,6 +34,10 @@ return {
     cancelled        = env("RMB_PROMPT_CANCELLED",     PROMPT_DIR .. "cancelled.wav"),
     thanks           = env("RMB_PROMPT_THANKS",        PROMPT_DIR .. "thanks.wav"),
     all_lines_busy   = env("RMB_PROMPT_BUSY",          PROMPT_DIR .. "all-lines-busy.wav"),
+    -- Played when rmbd reports reason_code=rate_limited on confirm — caller
+    -- has hit max_requests_per_caller_per_hour. Falls back to the generic
+    -- error prompt if the file is missing.
+    limit_reached    = env("RMB_PROMPT_LIMIT_REACHED", PROMPT_DIR .. "limit-reached.wav"),
     error            = env("RMB_PROMPT_ERROR",         PROMPT_DIR .. "error.wav"),
     goodbye          = env("RMB_PROMPT_GOODBYE",       PROMPT_DIR .. "goodbye.wav"),
   },

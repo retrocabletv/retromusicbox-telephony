@@ -38,7 +38,7 @@ convert() {
 
 echo "Dialogue prompts:"
 for n in welcome enter-code invalid-code you-entered press-to-confirm \
-         cancelled thanks all-lines-busy error goodbye; do
+         cancelled thanks all-lines-busy limit-reached error goodbye; do
   convert "$n"
 done
 

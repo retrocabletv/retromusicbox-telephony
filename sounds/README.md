@@ -38,6 +38,7 @@ Drop these directly under `sounds/` on the host.
 | `cancelled.wav` | `RMB_PROMPT_CANCELLED` | "Cancelled. Please enter a new selection." |
 | `thanks.wav` | `RMB_PROMPT_THANKS` | "Thanks! Your video is on the way." |
 | `all-lines-busy.wav` | `RMB_PROMPT_BUSY` | "All lines are currently busy. Please call back in a few minutes." |
+| `limit-reached.wav` | `RMB_PROMPT_LIMIT_REACHED` | "Sorry, you've reached the limit of requests from your number for now. Please try again later." |
 | `error.wav` | `RMB_PROMPT_ERROR` | "Sorry, something went wrong. Please call back later." |
 | `goodbye.wav` | `RMB_PROMPT_GOODBYE` | "Thanks for calling Retro Music Box. Goodbye." |
 
