@@ -39,32 +39,41 @@ jobs:
 
   build-image:
     runs-on: ubuntu-latest
-    env:
-      SIGNALWIRE_TOKEN: ${{ secrets.SIGNALWIRE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+      - name: Detect SignalWire token
+        id: signalwire-token
+        shell: bash
+        env:
+          SIGNALWIRE_TOKEN: ${{ secrets.SIGNALWIRE_TOKEN }}
+        run: |
+          if [ -n "$SIGNALWIRE_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Skip Docker build smoke test when secret is unavailable
-        if: ${{ env.SIGNALWIRE_TOKEN == '' }}
+        if: ${{ steps.signalwire-token.outputs.present != 'true' }}
         run: echo "SIGNALWIRE_TOKEN is not set; skipping Docker build smoke test."
       - name: Build image with BuildKit secret
-        if: ${{ env.SIGNALWIRE_TOKEN != '' }}
+        if: ${{ steps.signalwire-token.outputs.present == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: retromusicbox-telephony:ci
           secrets: |
-            signalwire_token=${{ env.SIGNALWIRE_TOKEN }}
+            signalwire_token=${{ secrets.SIGNALWIRE_TOKEN }}
       - name: Start FreeSWITCH smoke container
-        if: ${{ env.SIGNALWIRE_TOKEN != '' }}
+        if: ${{ steps.signalwire-token.outputs.present == 'true' }}
         run: |
           docker run -d --name rmb-freeswitch-smoke \
             -e RMBD_URL=http://127.0.0.1:8080 \
             -e RMB_EXTERNAL_IP=127.0.0.1 \
             retromusicbox-telephony:ci
       - name: Wait for healthy container
-        if: ${{ env.SIGNALWIRE_TOKEN != '' }}
+        if: ${{ steps.signalwire-token.outputs.present == 'true' }}
         run: |
           for i in $(seq 1 20); do
             status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' rmb-freeswitch-smoke)"
@@ -80,7 +89,7 @@ jobs:
           docker logs rmb-freeswitch-smoke
           exit 1
       - name: Check FreeSWITCH status
-        if: ${{ env.SIGNALWIRE_TOKEN != '' }}
+        if: ${{ steps.signalwire-token.outputs.present == 'true' }}
         run: docker exec rmb-freeswitch-smoke fs_cli -x status | grep '^UP '
       - name: Show container logs on failure
         if: failure()
