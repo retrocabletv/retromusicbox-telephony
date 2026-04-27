@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/retrocabletv/retromusicbox-telephony/compare/v1.0.0...v1.1.0) (2026-04-27)
+
+
+### Features
+
+* branch on reason_code for rate-limited callers ([#2](https://github.com/retrocabletv/retromusicbox-telephony/issues/2)) ([9f7cf78](https://github.com/retrocabletv/retromusicbox-telephony/commit/9f7cf781e07307db4ff5817b33c2bf4f5a0ce928))
+
 ## 1.0.0 (2026-04-27)
 
 
