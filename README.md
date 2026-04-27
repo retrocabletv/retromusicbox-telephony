@@ -129,6 +129,10 @@ Docker image build plus a FreeSWITCH startup smoke test whenever the repo has a
 `SIGNALWIRE_TOKEN` GitHub Actions secret configured. That job is skipped when
 the secret is absent, which keeps forked pull requests safe by default.
 
+On pushes to `main`, CI also publishes the image to `ghcr.io/alexkinch/retromusicbox-telephony`
+with the tags `:main` and `:sha-<commit>`. On version tags like `v1.2.3`, it
+publishes `:1.2.3`, `:1.2`, and `:latest`. Pull requests never publish an image.
+
 The bespoke prompts in `sounds/` are baked into the image at build time. The
 compose bind mount still overlays that directory for local prompt iteration, but
 the image itself is self-contained and does not depend on an external sounds
