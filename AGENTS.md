@@ -64,8 +64,11 @@ A session moves through four explicit states:
 | `GET` | `/api/ivr/sessions/{id}` | Inspect current state. Not used by the script today. |
 
 `validated` and `success` responses include `code`, `artist`, `title` in the
-body so the IVR has something to read back. `fail` responses include
-`reason`.
+body so the IVR has something to read back. `fail` responses include both
+`reason` (free-form, for logs) and `reason_code` (stable, for branching).
+Codes: `incomplete_code`, `unknown_code`, `rate_limited`, `queue_error`.
+The handler branches on `reason_code` so a rate-limited caller gets the
+dedicated `limit-reached` prompt instead of the generic error one.
 
 **The confirm window.** A `validated` session lives for `ivr.confirm_ttl_seconds`
 on the rmbd side (default 15s). The "press 1 to confirm" prompt plus caller
