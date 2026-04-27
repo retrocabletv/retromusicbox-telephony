@@ -1,0 +1,174 @@
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to rebuild and publish"
+        required: true
+        type: string
+      force_republish:
+        description: "Allow republishing a release that already has managed publish artifacts"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish:
+    concurrency:
+      group: publish-${{ github.event.release.tag_name || inputs.tag_name }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          else
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          fi
+
+          if [ -z "$TAG_NAME" ]; then
+            echo "tag_name is required" >&2
+            exit 1
+          fi
+
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "image_version=${TAG_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Require SignalWire token
+        env:
+          SIGNALWIRE_TOKEN: ${{ secrets.SIGNALWIRE_TOKEN }}
+        run: |
+          if [ -z "$SIGNALWIRE_TOKEN" ]; then
+            echo "SIGNALWIRE_TOKEN secret is required to publish the image." >&2
+            exit 1
+          fi
+
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag_name }}
+
+      - name: Determine release publish mode
+        id: publish-mode
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ steps.tag.outputs.tag_name }}"
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            if [ "${{ github.event.release.prerelease }}" = "false" ]; then
+              echo "publish_aliases=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "publish_aliases=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          RELEASE_JSON="$(gh release view "$TAG_NAME" --json body,isPrerelease)"
+          IS_PRERELEASE="$(printf '%s' "$RELEASE_JSON" | jq -r '.isPrerelease')"
+          HAS_MARKER="$(printf '%s' "$RELEASE_JSON" | jq -r '.body // "" | contains("<!-- retromusicbox-telephony-publish:begin -->")')"
+
+          if [ "$HAS_MARKER" = "true" ] && [ "${{ inputs.force_republish }}" != "true" ]; then
+            echo "Release $TAG_NAME already appears to have been published by this workflow." >&2
+            echo "Re-run with force_republish=true if you intentionally want to replace managed notes and restore stable aliases." >&2
+            exit 1
+          fi
+
+          if [ "$IS_PRERELEASE" = "false" ] && [ "${{ inputs.force_republish }}" = "true" ]; then
+            echo "publish_aliases=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish_aliases=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.tag.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.tag.outputs.tag_name }},enable=${{ steps.publish-mode.outputs.publish_aliases }}
+            type=raw,value=latest,enable=${{ steps.publish-mode.outputs.publish_aliases }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secrets: |
+            signalwire_token=${{ secrets.SIGNALWIRE_TOKEN }}
+
+      - name: Append image reference to release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          IMAGE_VERSION: ${{ steps.tag.outputs.image_version }}
+          PUBLISH_ALIASES: ${{ steps.publish-mode.outputs.publish_aliases }}
+        run: |
+          TAG_NAME="${{ steps.tag.outputs.tag_name }}"
+          gh release view "$TAG_NAME" --json body --jq '.body // ""' > /tmp/body.md
+
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("/tmp/body.md")
+          body = path.read_text()
+          begin = "<!-- retromusicbox-telephony-publish:begin -->"
+          end = "<!-- retromusicbox-telephony-publish:end -->"
+          image_name = os.environ["IMAGE_NAME"]
+          image_version = os.environ["IMAGE_VERSION"]
+          tags = [f"`{image_name}:{image_version}`"]
+          if os.environ["PUBLISH_ALIASES"] == "true":
+              tags.extend([
+                  f"`{image_name}:{'.'.join(image_version.split('.')[:2])}`",
+                  f"`{image_name}:latest`",
+              ])
+          managed = "\n".join([
+              begin,
+              "**Published artifacts**",
+              "",
+              f"- Container image tags: {', '.join(tags)}",
+              "",
+              "_Container image is built from the release tag using the Debian-based FreeSWITCH Dockerfile and published for `linux/amd64`._",
+              end,
+          ])
+          pattern = re.compile(r"<!-- retromusicbox-telephony-publish:begin -->.*?<!-- retromusicbox-telephony-publish:end -->", re.S)
+          if pattern.search(body):
+              updated = pattern.sub(managed, body, count=1)
+          else:
+              separator = "\n\n" if body.strip() else ""
+              updated = body.rstrip() + separator + managed + "\n"
+          path.write_text(updated)
+          PY
+
+          gh release edit "$TAG_NAME" --notes-file /tmp/body.md

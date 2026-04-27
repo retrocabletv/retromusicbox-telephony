@@ -3,8 +3,6 @@ name: ci
 on:
   push:
     branches: [main]
-    tags:
-      - 'v*'
   pull_request:
 
 permissions:
@@ -41,9 +39,6 @@ jobs:
 
   build-image:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -98,39 +93,9 @@ jobs:
       - name: Check FreeSWITCH status
         if: ${{ steps.signalwire-token.outputs.present == 'true' }}
         run: docker exec rmb-freeswitch-smoke fs_cli -x status | grep '^UP '
-      - name: Log in to GHCR
-        if: ${{ steps.signalwire-token.outputs.present == 'true' && github.event_name == 'push' }}
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compute image tags
-        if: ${{ steps.signalwire-token.outputs.present == 'true' && github.event_name == 'push' }}
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=main,enable={{is_default_branch}}
-            type=sha,prefix=sha-,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - name: Publish image to GHCR
-        if: ${{ steps.signalwire-token.outputs.present == 'true' && github.event_name == 'push' }}
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          cache-from: type=gha
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          secrets: |
-            signalwire_token=${{ secrets.SIGNALWIRE_TOKEN }}
       - name: Show container logs on failure
-        if: failure()
-        run: docker logs rmb-freeswitch-smoke
+        if: ${{ failure() && steps.signalwire-token.outputs.present == 'true' }}
+        run: docker logs rmb-freeswitch-smoke || true
       - name: Remove smoke container
-        if: always()
-        run: docker rm -f rmb-freeswitch-smoke
+        if: ${{ always() && steps.signalwire-token.outputs.present == 'true' }}
+        run: docker rm -f rmb-freeswitch-smoke || true
