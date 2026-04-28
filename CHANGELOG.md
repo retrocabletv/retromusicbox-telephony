@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/retrocabletv/retromusicbox-telephony/compare/v1.1.0...v1.1.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* **freeswitch:** default external_ip to "auto" when env var unset ([#11](https://github.com/retrocabletv/retromusicbox-telephony/issues/11)) ([49bfe7c](https://github.com/retrocabletv/retromusicbox-telephony/commit/49bfe7c574f719386a74cd11e6aab433edc5aec7))
+
 ## [1.1.0](https://github.com/retrocabletv/retromusicbox-telephony/compare/v1.0.0...v1.1.0) (2026-04-27)
 
 
