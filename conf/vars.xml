@@ -4,11 +4,16 @@
     it removes any transcoding cost. Add OPUS at the front later if you
     want WebRTC clients.
 
-    The external SIP profile uses `rtp-ip="auto"` / `sip-ip="auto"` and
-    sofia advertises the primary interface in SDP. With `network_mode: host`
-    on Linux that's the host's real interface, which is what we want.
+    `external_ip` resolves to `$RMB_EXTERNAL_IP` if that env var is set,
+    otherwise the literal "auto" — which tells sofia to bind to and
+    advertise the container's primary outbound interface. That's the
+    right default for `network_mode: host` and macvlan deployments
+    where the container has a routable IP. Override `RMB_EXTERNAL_IP`
+    explicitly for NAT'd deployments (where SDP must advertise an IP
+    different from the bind interface) or for OrbStack on macOS (set
+    to 127.0.0.1 so the localhost forwarder can reach it).
   -->
-  <X-PRE-PROCESS cmd="exec-set" data="external_ip=printenv RMB_EXTERNAL_IP"/>
+  <X-PRE-PROCESS cmd="exec-set" data="external_ip=sh -c 'echo ${RMB_EXTERNAL_IP:-auto}'"/>
   <X-PRE-PROCESS cmd="set" data="global_codec_prefs=PCMU,PCMA"/>
   <X-PRE-PROCESS cmd="set" data="outbound_codec_prefs=PCMU,PCMA"/>
 </include>

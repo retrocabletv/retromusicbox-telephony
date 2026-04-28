@@ -2,7 +2,7 @@
 # Drop this into the same dir as your rmbd repo (or wire the rmbd image you use).
 services:
   rmbd:
-    image: ghcr.io/alexkinch/retromusicbox:latest
+    image: ghcr.io/retrocabletv/retromusicbox:latest
     container_name: rmbd
     ports:
       - "8080:8080"
