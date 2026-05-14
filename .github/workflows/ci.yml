@@ -12,7 +12,7 @@ jobs:
   lint-lua:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install luacheck via luarocks
         # Ubuntu 24.04 (noble) dropped the `luacheck` apt package, so we
         # install it via luarocks instead. The `lua5.3` + `liblua5.3-dev`
@@ -31,7 +31,7 @@ jobs:
   validate-xml:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install xmllint
         run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - name: Validate dialplan XML well-formedness
@@ -40,7 +40,7 @@ jobs:
   build-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
       - name: Detect SignalWire token
         id: signalwire-token
