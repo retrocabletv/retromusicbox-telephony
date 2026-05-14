@@ -58,7 +58,7 @@ jobs:
         run: echo "SIGNALWIRE_TOKEN is not set; skipping Docker build smoke test."
       - name: Build image with BuildKit secret
         if: ${{ steps.signalwire-token.outputs.present == 'true' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           cache-from: type=gha
